@@ -8,6 +8,7 @@ import sys
 import numpy as np
 from scipy.stats import multivariate_normal
 from matplotlib import cm
+import matplotlib
 
 
 class HSlider(QWidget):
@@ -38,7 +39,6 @@ class HSlider(QWidget):
         self.maximum - self.minimum)
         self.label.setText("{0:.2f}".format(self.x))
 
-
 class VSlider(QWidget):
     def __init__(self, minimum, maximum, parent=None):
         super(VSlider, self).__init__(parent=parent)
@@ -67,13 +67,10 @@ class VSlider(QWidget):
         self.maximum - self.minimum)
         self.label.setText("{0:.2f}".format(self.x))
 
-
-
 class Widget(QWidget):
     def __init__(self, parent=None):
         super(Widget, self).__init__(parent=parent)
         self.widgetlayout = QGridLayout(self)
-
 
         ## define covariance matrices
         cov_inv = np.diag([2., 2., 2.])
@@ -98,7 +95,7 @@ class Widget(QWidget):
         self.p1.hideAxis('bottom')
         self.im1 = pg.ImageItem()
         # Get the colormap
-        colormap = cm.get_cmap("jet")  # cm.get_cmap("CMRmap")
+        colormap = matplotlib.colormaps["jet"] # cm.get_cmap("CMRmap")
         colormap._init()
         lut = (colormap._lut * 255).view(np.ndarray)  # Convert matplotlib colormap from 0-1 to 0 -255 for Qt
 
@@ -153,6 +150,12 @@ class Widget(QWidget):
         self.slider3.slider.valueChanged.connect(self.update_conditional)
 
 
+        self.x_prev = -3.
+        self.y_prev = 3.
+        self.z_prev = -3.
+
+
+
     def create_3d_plot(self):
         self.glvw= gl.GLViewWidget()
         self.glvw.setWindowTitle('3D Gaussian viewer')
@@ -185,7 +188,7 @@ class Widget(QWidget):
         ##############################
 
         v, w = np.linalg.eig(self.cov)
-        samples = multivariate_normal.rvs(cov=self.cov, size=10000)
+        samples = multivariate_normal.rvs(cov=self.cov, size=20000)
         plt = gl.GLScatterPlotItem(pos=samples, color=(0.5, 0.5, 0.5, 0.7), size=2.0)
         self.glvw.addItem(plt)
 
@@ -234,10 +237,9 @@ class Widget(QWidget):
         faces = np.array([[0, 1, 2],
                           [0, 2, 3]])
         self.zmeshData = gl.MeshData(vertexes=verts, faces=faces)
-        self.zPlane = gl.GLMeshItem(meshdata=self.zmeshData, color=(0,1,0,0.4))
+        self.zPlane = gl.GLMeshItem(meshdata=self.zmeshData, color=(0,1,0,0.0))
         self.zPlane.setGLOptions('additive')
         self.glvw.addItem(self.zPlane)
-
 
         verts = np.array([[-3.,  3., -3.],
                           [-3.,  3.,  3.],
@@ -246,7 +248,7 @@ class Widget(QWidget):
         faces = np.array([[0, 1, 2],
                           [0, 2, 3]])
         self.ymeshData = gl.MeshData(vertexes=verts, faces=faces)
-        self.yPlane = gl.GLMeshItem(meshdata=self.ymeshData, color=(0,0,1,0.4))
+        self.yPlane = gl.GLMeshItem(meshdata=self.ymeshData, color=(0,0,1,0.0))
         self.yPlane.setGLOptions('additive')
         self.glvw.addItem(self.yPlane)
 
@@ -258,12 +260,15 @@ class Widget(QWidget):
         faces = np.array([[0, 1, 2],
                           [0, 2, 3]])
         self.xmeshData = gl.MeshData(vertexes=verts, faces=faces)
-        self.xPlane = gl.GLMeshItem(meshdata=self.xmeshData, color=(1,0,0,0.4))
+        self.xPlane = gl.GLMeshItem(meshdata=self.xmeshData, color=(1,0,0,0.0))
         self.xPlane.setGLOptions('additive')
         self.glvw.addItem(self.xPlane)
 
-
-
+        #### REMOVE AFTER
+        # xline = np.array([[-3., 1., 1.],
+        #                   [ 3., 1., 1.]])
+        # plt = gl.GLLinePlotItem(pos=xline, color=(1,0,0,1), width=10.)
+        # self.glvw.addItem(plt)
 
     def update_conditional(self):
         y_cond_mean = self.cov[::2,1] / self.cov[1,1] * self.slider2.x
@@ -281,39 +286,53 @@ class Widget(QWidget):
         pdf = multivariate_normal.pdf(self.grid.T, mean=x_cond_mean, cov=x_cond_cov)
         self.im3.setImage(pdf.reshape((51,51)))
 
-
     def update_slices(self):
         s1 = self.slider1.x
         s2 = self.slider2.x
         s3 = self.slider3.x
-        verts = np.array([[-3., -3., s1],
-                          [-3.,  3., s1],
-                          [ 3.,  3., s1],
-                          [ 3., -3., s1]])
-        self.zmeshData.setVertexes(verts)
 
-        self.zPlane.meshDataChanged()
-
-        verts = np.array([[-3., s2, -3.],
-                          [-3., s2,  3.],
-                          [ 3., s2,  3.],
-                          [ 3., s2, -3.]])
-        self.ymeshData.setVertexes(verts)
-
-        self.yPlane.meshDataChanged()
-
-        verts = np.array([[s3, -3., -3.],
-                          [s3, -3.,  3.],
-                          [s3,  3.,  3.],
-                          [s3,  3., -3.]])
-
-        self.xmeshData.setVertexes(verts)
-
-        self.xPlane.meshDataChanged()
+        if s1 != self.z_prev:
+            if s1 < -2.8:
+                self.zPlane.setColor((0.,1.,0.,0.))
+            else:
+                verts = np.array([[-3., -3., s1],
+                                  [-3.,  3., s1],
+                                  [ 3.,  3., s1],
+                                  [ 3., -3., s1]])
+                self.zmeshData.setVertexes(verts)
+                self.zPlane.setColor((0.,1.,0.,0.2))
+                self.zPlane.meshDataChanged()
+                self.z_prev = s1
 
 
 
+        if s2 != self.y_prev:
+            if s2 > 2.8:
+                self.yPlane.setColor((0.,0.,1.,0.))
+            else:
+                verts = np.array([[-3., s2, -3.],
+                                  [-3., s2,  3.],
+                                  [ 3., s2,  3.],
+                                  [ 3., s2, -3.]])
+                self.ymeshData.setVertexes(verts)
 
+                self.yPlane.setColor((0.,0.,1.,0.2))
+                self.yPlane.meshDataChanged()
+                self.y_prev = s2
+
+        if s3 != self.x_prev:
+            if s3 < -2.8:
+                self.xPlane.setColor((1.,0.,0.,0.))
+            else:
+                verts = np.array([[s3, -3., -3.],
+                                  [s3, -3.,  3.],
+                                  [s3,  3.,  3.],
+                                  [s3,  3., -3.]])
+
+                self.xmeshData.setVertexes(verts)
+                self.xPlane.setColor((1.,0.,0.,0.2))
+                self.xPlane.meshDataChanged()
+                self.x_prev = s3
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
